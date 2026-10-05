@@ -1,311 +1,296 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web BLE Remote Controller</title>
-    <style>
-        :root {
-            --bg-color: #121214;
-            --card-color: #1a1a1e;
-            --accent-color: #007aff;
-            --success-color: #34c759;
-            --text-color: #ffffff;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xbox Web BLE Controller</title>
+  <style>
+    /* Dark Futuristic Gaming Theme */
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 10px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
+    /* Top Status Bar */
+    .status-panel {
+      text-align: center;
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 400px;
+    }
 
-        .container {
-            width: 100%;
-            max-width: 450px;
-            background-color: var(--card-color);
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-            box-sizing: border-box;
-        }
+    #connectBtn {
+      background-color: #107c11; /* Xbox Green */
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(16, 124, 17, 0.4);
+      transition: transform 0.1s, background-color 0.2s;
+      width: 100%;
+    }
 
-        h2 {
-            margin-top: 0;
-            text-align: center;
-            font-weight: 600;
-        }
+    #connectBtn:active {
+      transform: scale(0.98);
+      background-color: #0e6b0f;
+    }
 
-        /* Status & Connection Panel */
-        .panel {
-            background-color: rgba(255,255,255,0.05);
-            padding: 16px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+    #statusLog {
+      font-size: 13px;
+      color: #aaaaaa;
+      margin-top: 8px;
+      background: #1e1e1e;
+      padding: 8px;
+      border-radius: 5px;
+      min-height: 20px;
+    }
 
-        .status-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-        }
+    /* Virtual Xbox Controller Shell */
+    .controller-shell {
+      background: linear-gradient(145px, #2a2a2a, #1a1a1a);
+      width: 90vw;
+      max-width: 480px;
+      height: 280px;
+      border-radius: 80px 80px 120px 120px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6), inset 0 2px 5px rgba(255,255,255,0.1);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      position: relative;
+      padding: 20px;
+      border: 2px solid #333;
+      box-sizing: border-box;
+    }
 
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background-color: #ff3b30;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-        }
+    /* Center Xbox Guide Button */
+    .xbox-logo {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 45px;
+      height: 45px;
+      background: radial-gradient(circle, #ffffff 40%, #cccccc 80%);
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .xbox-logo::after {
+      content: 'X';
+      color: #121212;
+      font-weight: 900;
+      font-size: 22px;
+    }
 
-        .status-dot.connected {
-            background-color: var(--success-color);
-        }
+    /* Left Side: D-PAD (Directional Arrows) */
+    .left-zone {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+    }
 
-        .btn {
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            width: 100%;
-        }
+    .dpad {
+      position: relative;
+      width: 120px;
+      height: 120px;
+    }
 
-        .btn:active {
-            opacity: 0.8;
-        }
+    .dpad-btn {
+      position: absolute;
+      background-color: #262626;
+      border: 1px solid #3d3d3d;
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
 
-        .btn:disabled {
-            background-color: #444;
-            cursor: not-allowed;
-        }
+    .dpad-btn:active {
+      background-color: #107c11 !important; /* Turns Green on Press */
+    }
 
-        /* D-PAD Layout */
-        .dpad-container {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            margin: 40px auto;
-        }
+    .dpad-up    { top: 0; left: 40px; width: 40px; height: 45px; border-radius: 5px 5px 0 0; }
+    .dpad-down  { bottom: 0; left: 40px; width: 40px; height: 45px; border-radius: 0 0 5px 5px; }
+    .dpad-left  { top: 40px; left: 0; width: 45px; height: 40px; border-radius: 5px 0 0 5px; }
+    .dpad-right { top: 40px; right: 0; width: 45px; height: 40px; border-radius: 0 5px 5px 0; }
+    
+    /* Center core of Dpad to make it solid */
+    .dpad-center {
+      position: absolute;
+      top: 40px;
+      left: 40px;
+      width: 40px;
+      height: 40px;
+      background-color: #262626;
+      z-index: 1;
+    }
 
-        .dpad-btn {
-            position: absolute;
-            background-color: #2c2c32;
-            border: 2px solid #3a3a42;
-            color: white;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            user-select: none;
-            -webkit-user-select: none;
-        }
+    /* Right Side: XYBA Action Buttons */
+    .right-zone {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+    }
 
-        .dpad-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
+    .action-buttons {
+      position: relative;
+      width: 120px;
+      height: 120px;
+    }
 
-        .dpad-btn:active:not(:disabled) {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
+    .btn-action {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      font-weight: bold;
+      font-size: 16px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+    .btn-action:active { transform: scale(0.9); opacity: 0.8; }
 
-        .dpad-up { top: 0; left: 66px; width: 68px; height: 68px; border-radius: 8px 8px 0 0; }
-        .dpad-down { bottom: 0; left: 66px; width: 68px; height: 68px; border-radius: 0 0 8px 8px; }
-        .dpad-left { top: 66px; left: 0; width: 68px; height: 68px; border-radius: 8px 0 0 8px; }
-        .dpad-right { top: 66px; right: 0; width: 68px; height: 68px; border-radius: 0 8px 8px 0; }
-        .dpad-center { top: 66px; left: 66px; width: 68px; height: 68px; background-color: #1e1e24; border: none; cursor: default; }
-
-        /* Console Output */
-        .terminal {
-            background-color: #000;
-            font-family: monospace;
-            font-size: 12px;
-            padding: 12px;
-            border-radius: 8px;
-            height: 100px;
-            overflow-y: auto;
-            color: #34c759;
-            border: 1px solid #222;
-        }
-    </style>
+    /* Exact Xbox Button Styling */
+    .btn-y { top: 0; left: 42px; background-color: #fdb813; text-shadow: 0 1px 2px #000; } /* Yellow Y */
+    .btn-a { bottom: 0; left: 42px; background-color: #107c11; text-shadow: 0 1px 2px #000; } /* Green A */
+    .btn-x { top: 42px; left: 0; background-color: #0078d4; text-shadow: 0 1px 2px #000; } /* Blue X */
+    .btn-b { top: 42px; right: 0; background-color: #e81123; text-shadow: 0 1px 2px #000; } /* Red B */
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Web BLE Controller</h2>
-    
-    <div class="panel">
-        <div class="status-row">
-            <span>Status: <strong id="status-text">Disconnected</strong></span>
-            <div id="status-indicator" class="status-dot"></div>
-        </div>
-        <button id="connect-btn" class="btn">Connect Device</button>
-    </div>
+  <div class="status-panel">
+    <button id="connectBtn">🎮 Connect Xbox BLE Controller</button>
+    <div id="statusLog">[System] Awaiting Web Bluetooth connection...</div>
+  </div>
 
-    <div class="dpad-container">
-        <button class="dpad-btn dpad-up" data-command="UP" disabled>▲</button>
-        <button class="dpad-btn dpad-left" data-command="LEFT" disabled>◀</button>
+  <!-- Controller Interface -->
+  <div class="controller-shell">
+    <div class="xbox-logo"></div>
+
+    <!-- Directional Commands -->
+    <div class="left-zone">
+      <div class="dpad">
         <div class="dpad-center"></div>
-        <button class="dpad-btn dpad-right" data-command="RIGHT" disabled>▶</button>
-        <button class="dpad-btn dpad-down" data-command="DOWN" disabled>▼</button>
+        <button class="dpad-btn dpad-up" data-command="UP">▲</button>
+        <button class="dpad-btn dpad-left" data-command="LEFT">◀</button>
+        <button class="dpad-btn dpad-right" data-command="RIGHT">▶</button>
+        <button class="dpad-btn dpad-down" data-command="DOWN">▼</button>
+      </div>
     </div>
 
-    <div class="terminal" id="terminal-log">
-        [System] Awaiting Web Bluetooth connection...
+    <!-- Action Buttons -->
+    <div class="right-zone">
+      <div class="action-buttons">
+        <button class="btn-action btn-y" data-command="Y">Y</button>
+        <button class="btn-action btn-x" data-command="X">X</button>
+        <button class="btn-action btn-b" data-command="B">B</button>
+        <button class="btn-action btn-a" data-command="A">A</button>
+      </div>
     </div>
-</div>
+  </div>
 
-<script>
-    // --- Configuration Variables ---
-    // Modify these strings to match the BLE parameters of your target device
-    const TARGET_SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b'; 
-    const TARGET_CHAR_UUID    = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-
+  <script>
+    // Bluetooth Setup Variables
     let bleDevice = null;
     let bleCharacteristic = null;
 
-    // DOM Elements
-    const connectBtn = document.getElementById('connect-btn');
-    const statusText = document.getElementById('status-text');
-    const statusIndicator = document.getElementById('status-indicator');
-    const terminalLog = document.getElementById('terminal-log');
-    const dpadButtons = document.querySelectorAll('.dpad-btn');
+    // 💡 CUSTOMIZE YOUR HARDWARE UUIDS HERE:
+    // If you use a custom ESP32/Arduino, replace these with your service/characteristic UUIDs
+    const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb'; 
+    const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
-    // Logging helper
-    function log(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        terminalLog.innerHTML += `<br>[${timestamp}] ${message}`;
-        terminalLog.scrollTop = terminalLog.scrollHeight;
-    }
+    const connectBtn = document.getElementById('connectBtn');
+    const statusLog = document.getElementById('statusLog');
 
-    // Toggle D-Pad UI states
-    function setControlsEnabled(enabled) {
-        dpadButtons.forEach(btn => btn.disabled = !enabled);
-    }
+    // Handle Connection Button Click
+    connectBtn.addEventListener('click', async () => {
+      if (!navigator.bluetooth) {
+        statusLog.innerText = "Error: This browser or device blocks Web BLE entirely.";
+        return;
+      }
 
-    // Web Bluetooth connection workflow
-    async function connectToDevice() {
-        try {
-            log("Opening browser Bluetooth selector...");
-            
-            // 1. Prompt user to select a device offering your service
-            bleDevice = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [TARGET_SERVICE_UUID] }]
-                // Or use acceptAllDevices: true if you add TARGET_SERVICE_UUID to optionalServices
-            });
+      try {
+        statusLog.innerText = "Opening Bluetooth scanner...";
+        
+        // Scan for BLE Peripherals
+        bleDevice = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [SERVICE_UUID]
+        });
 
-            log(`Device picked: ${bleDevice.name || 'Unnamed Device'}`);
-            statusText.innerText = "Connecting...";
-            
-            // Listen for unexpected disconnect events
-            bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        statusLog.innerText = `Connecting to: ${bleDevice.name || 'Unnamed Device'}...`;
+        
+        // Connect to GATT Server
+        const server = await bleDevice.gatt.connect();
+        
+        // Get the requested Service
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        
+        // Get the Characteristic we can write to
+        bleCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
-            // 2. Handshake with the GATT Server
-            const server = await bleDevice.gatt.connect();
-            log("Connected to GATT Server.");
+        statusLog.innerText = "🎮 Connected Successfully! Controller Ready.";
+        connectBtn.style.backgroundColor = "#262626";
+        connectBtn.innerText = "✓ Controller Connected";
 
-            // 3. Acquire the Service
-            const service = await server.getPrimaryService(TARGET_SERVICE_UUID);
-            log("Target Service acquired.");
-
-            // 4. Acquire the writable Characteristic
-            bleCharacteristic = await service.getCharacteristic(TARGET_CHAR_UUID);
-            log("Target Characteristic acquired. Ready to control!");
-
-            // Update UI State
-            statusText.innerText = "Connected";
-            statusIndicator.classList.add('connected');
-            connectBtn.innerText = "Disconnect";
-            setControlsEnabled(true);
-
-        } catch (error) {
-            log(`Connection failed: ${error.message}`);
-            statusText.innerText = "Disconnected";
-            statusIndicator.classList.remove('connected');
-        }
-    }
-
-    function disconnectDevice() {
-        if (bleDevice && bleDevice.gatt.connected) {
-            bleDevice.gatt.disconnect();
-        }
-    }
-
-    function onDisconnected() {
-        log("Device disconnected.");
-        statusText.innerText = "Disconnected";
-        statusIndicator.classList.remove('connected');
-        connectBtn.innerText = "Connect Device";
-        setControlsEnabled(false);
-        bleDevice = null;
-        bleCharacteristic = null;
-    }
-
-    // Connect/Disconnect Button Handler
-    connectBtn.addEventListener('click', () => {
-        if (!bleDevice) {
-            connectToDevice();
-        } else {
-            disconnectDevice();
-        }
+      } catch (error) {
+        console.error(error);
+        statusLog.innerText = `Connection Failed: ${error.message}`;
+      }
     });
 
-    // --- Command Transmission Handler ---
+    // Helper Function to Send Commands Over Bluetooth
     async function sendCommand(commandText) {
-        if (!bleCharacteristic) return;
+      if (!bleCharacteristic) {
+        statusLog.innerText = `Pressed ${commandText} (Not connected to hardware)`;
+        return;
+      }
 
-        try {
-            // Encode the string payload into raw binary array bytes
-            const encoder = new TextEncoder();
-            const dataBytes = encoder.encode(commandText);
-            
-            // Transmit over the air to the physical microchip
-            await bleCharacteristic.writeValue(dataBytes);
-            log(`Sent output: "${commandText}"`);
-        } catch (error) {
-            log(`Transmission Error: ${error.message}`);
-        }
+      try {
+        // Encodes your text command (like "UP", "A") into raw bytes to send to your motor/receiver
+        const encoder = new TextEncoder();
+        const data = encoder.encode(commandText + '\n'); 
+        await bleCharacteristic.writeValue(data);
+        statusLog.innerText = `Sent Command: ${commandText}`;
+      } catch (error) {
+        statusLog.innerText = `Tx Error: ${error.message}`;
+      }
     }
 
-    // Attach mouse and touch handlers to tracking commands
-    dpadButtons.forEach(button => {
-        const cmd = button.getAttribute('data-command');
-
-        // Trigger on click/tap hold
-        const startAction = (e) => {
-            e.preventDefault(); // Prevents double firing on mobile touch environments
-            sendCommand(cmd);
-        };
-
-        // Trigger on release
-        const stopAction = (e) => {
-            e.preventDefault();
-            sendCommand("STOP");
-        };
-
-        button.addEventListener('mousedown', startAction);
-        button.addEventListener('mouseup', stopAction);
-        
-        button.addEventListener('touchstart', startAction);
-        button.addEventListener('touchend', stopAction);
-
+    // Attach Click Events to Every Single Button on the Controller
+    document.querySelectorAll('.dpad-btn, .btn-action').forEach(button => {
+      button.addEventListener('click', () => {
+        const command = button.getAttribute('data-command');
+        sendCommand(command);
+      });
+    });
+  </script>
+</body>
+</html>
