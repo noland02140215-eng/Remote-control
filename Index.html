@@ -1,1 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web BLE Remote Controller</title>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-color: #1a1a1e;
+            --accent-color: #007aff;
+            --success-color: #34c759;
+            --text-color: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background-color: var(--card-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* Status & Connection Panel */
+        .panel {
+            background-color: rgba(255,255,255,0.05);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .status-dot.connected {
+            background-color: var(--success-color);
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            width: 100%;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        .btn:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+
+        /* D-PAD Layout */
+        .dpad-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 40px auto;
+        }
+
+        .dpad-btn {
+            position: absolute;
+            background-color: #2c2c32;
+            border: 2px solid #3a3a42;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .dpad-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .dpad-btn:active:not(:disabled) {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .dpad-up { top: 0; left: 66px; width: 68px; height: 68px; border-radius: 8px 8px 0 0; }
+        .dpad-down { bottom: 0; left: 66px; width: 68px; height: 68px; border-radius: 0 0 8px 8px; }
+        .dpad-left { top: 66px; left: 0; width: 68px; height: 68px; border-radius: 8px 0 0 8px; }
+        .dpad-right { top: 66px; right: 0; width: 68px; height: 68px; border-radius: 0 8px 8px 0; }
+        .dpad-center { top: 66px; left: 66px; width: 68px; height: 68px; background-color: #1e1e24; border: none; cursor: default; }
+
+        /* Console Output */
+        .terminal {
+            background-color: #000;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            height: 100px;
+            overflow-y: auto;
+            color: #34c759;
+            border: 1px solid #222;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Web BLE Controller</h2>
+    
+    <div class="panel">
+        <div class="status-row">
+            <span>Status: <strong id="status-text">Disconnected</strong></span>
+            <div id="status-indicator" class="status-dot"></div>
+        </div>
+        <button id="connect-btn" class="btn">Connect Device</button>
+    </div>
+
+    <div class="dpad-container">
+        <button class="dpad-btn dpad-up" data-command="UP" disabled>▲</button>
+        <button class="dpad-btn dpad-left" data-command="LEFT" disabled>◀</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-right" data-command="RIGHT" disabled>▶</button>
+        <button class="dpad-btn dpad-down" data-command="DOWN" disabled>▼</button>
+    </div>
+
+    <div class="terminal" id="terminal-log">
+        [System] Awaiting Web Bluetooth connection...
+    </div>
+</div>
+
+<script>
+    // --- Configuration Variables ---
+    // Modify these strings to match the BLE parameters of your target device
+    const TARGET_SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b'; 
+    const TARGET_CHAR_UUID    = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+    let bleDevice = null;
+    let bleCharacteristic = null;
+
+    // DOM Elements
+    const connectBtn = document.getElementById('connect-btn');
+    const statusText = document.getElementById('status-text');
+    const statusIndicator = document.getElementById('status-indicator');
+    const terminalLog = document.getElementById('terminal-log');
+    const dpadButtons = document.querySelectorAll('.dpad-btn');
+
+    // Logging helper
+    function log(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        terminalLog.innerHTML += `<br>[${timestamp}] ${message}`;
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+    }
+
+    // Toggle D-Pad UI states
+    function setControlsEnabled(enabled) {
+        dpadButtons.forEach(btn => btn.disabled = !enabled);
+    }
+
+    // Web Bluetooth connection workflow
+    async function connectToDevice() {
+        try {
+            log("Opening browser Bluetooth selector...");
+            
+            // 1. Prompt user to select a device offering your service
+            bleDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ services: [TARGET_SERVICE_UUID] }]
+                // Or use acceptAllDevices: true if you add TARGET_SERVICE_UUID to optionalServices
+            });
+
+            log(`Device picked: ${bleDevice.name || 'Unnamed Device'}`);
+            statusText.innerText = "Connecting...";
+            
+            // Listen for unexpected disconnect events
+            bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+            // 2. Handshake with the GATT Server
+            const server = await bleDevice.gatt.connect();
+            log("Connected to GATT Server.");
+
+            // 3. Acquire the Service
+            const service = await server.getPrimaryService(TARGET_SERVICE_UUID);
+            log("Target Service acquired.");
+
+            // 4. Acquire the writable Characteristic
+            bleCharacteristic = await service.getCharacteristic(TARGET_CHAR_UUID);
+            log("Target Characteristic acquired. Ready to control!");
+
+            // Update UI State
+            statusText.innerText = "Connected";
+            statusIndicator.classList.add('connected');
+            connectBtn.innerText = "Disconnect";
+            setControlsEnabled(true);
+
+        } catch (error) {
+            log(`Connection failed: ${error.message}`);
+            statusText.innerText = "Disconnected";
+            statusIndicator.classList.remove('connected');
+        }
+    }
+
+    function disconnectDevice() {
+        if (bleDevice && bleDevice.gatt.connected) {
+            bleDevice.gatt.disconnect();
+        }
+    }
+
+    function onDisconnected() {
+        log("Device disconnected.");
+        statusText.innerText = "Disconnected";
+        statusIndicator.classList.remove('connected');
+        connectBtn.innerText = "Connect Device";
+        setControlsEnabled(false);
+        bleDevice = null;
+        bleCharacteristic = null;
+    }
+
+    // Connect/Disconnect Button Handler
+    connectBtn.addEventListener('click', () => {
+        if (!bleDevice) {
+            connectToDevice();
+        } else {
+            disconnectDevice();
+        }
+    });
+
+    // --- Command Transmission Handler ---
+    async function sendCommand(commandText) {
+        if (!bleCharacteristic) return;
+
+        try {
+            // Encode the string payload into raw binary array bytes
+            const encoder = new TextEncoder();
+            const dataBytes = encoder.encode(commandText);
+            
+            // Transmit over the air to the physical microchip
+            await bleCharacteristic.writeValue(dataBytes);
+            log(`Sent output: "${commandText}"`);
+        } catch (error) {
+            log(`Transmission Error: ${error.message}`);
+        }
+    }
+
+    // Attach mouse and touch handlers to tracking commands
+    dpadButtons.forEach(button => {
+        const cmd = button.getAttribute('data-command');
+
+        // Trigger on click/tap hold
+        const startAction = (e) => {
+            e.preventDefault(); // Prevents double firing on mobile touch environments
+            sendCommand(cmd);
+        };
+
+        // Trigger on release
+        const stopAction = (e) => {
+            e.preventDefault();
+            sendCommand("STOP");
+        };
+
+        button.addEventListener('mousedown', startAction);
+        button.addEventListener('mouseup', stopAction);
+        
+        button.addEventListener('touchstart', startAction);
+        button.addEventListener('touchend', stopAction);
 
